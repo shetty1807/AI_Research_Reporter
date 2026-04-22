@@ -1,0 +1,30 @@
+[project]
+name = "ai_research_reporter"
+version = "0.1.0"
+description = "ai_research_reporter using crewAI"
+authors = [{ name = "Your Name", email = "you@example.com" }]
+requires-python = ">=3.10,<3.14"
+dependencies = [
+    "crewai[litellm,tools]==1.14.2",
+    "fastapi>=0.136.0",
+    "python-multipart>=0.0.26",
+    "reportlab>=4.4.10",
+    "requests>=2.33.1",
+    "streamlit>=1.56.0",
+    "uvicorn>=0.45.0",
+]
+
+[project.scripts]
+ai_research_reporter = "ai_research_reporter.main:run"
+run_crew = "ai_research_reporter.main:run"
+train = "ai_research_reporter.main:train"
+replay = "ai_research_reporter.main:replay"
+test = "ai_research_reporter.main:test"
+run_with_trigger = "ai_research_reporter.main:run_with_trigger"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.crewai]
+type = "crew"

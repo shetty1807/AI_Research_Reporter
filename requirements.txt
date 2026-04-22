@@ -1,0 +1,8 @@
+streamlit
+crewai
+litellm
+fastapi
+uvicorn
+requests
+reportlab
+python-multipart

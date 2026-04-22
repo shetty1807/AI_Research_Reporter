@@ -1,0 +1,18 @@
+research_task:
+  description: >
+    Conduct detailed research on the topic: {topic}.
+    Find important facts, current trends, advantages, challenges,
+    applications, and future scope.
+  expected_output: >
+    A detailed research summary with key points and findings.
+  agent: researcher
+
+reporting_task:
+  description: >
+    Using the research provided, write a detailed professional report
+    on the topic: {topic}. Include introduction, major findings,
+    applications, challenges, future scope, and conclusion.
+  expected_output: >
+    A structured markdown report with headings and clear explanations.
+  agent: reporting_analyst
+  output_file: report.md
