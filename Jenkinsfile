@@ -4,30 +4,37 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                echo 'Code checked out successfully'
+                echo 'Checking code from GitHub...'
+            }
+        }
+
+        stage('Test') {
+            steps {
+                bat 'python --version'
+                bat 'pip install -r requirements.txt'
             }
         }
 
         stage('Build Docker Image') {
             steps {
-                bat 'docker build -t ai-devops-analyzer .'
+                bat 'docker build -t ai-research-reporter .'
             }
         }
 
-        stage('Run Container') {
+        stage('Deploy Container') {
             steps {
-                bat 'docker rm -f ai-devops-container || exit 0'
-                bat 'docker run -d -p 8501:8501 --name ai-devops-container ai-devops-analyzer'
+                bat 'docker rm -f ai-research-container || exit 0'
+                bat 'docker run -d -p 8501:8501 --name ai-research-container ai-research-reporter'
             }
         }
     }
 
     post {
         success {
-            echo 'Deployment completed successfully'
+            echo 'CI/CD Pipeline completed successfully!'
         }
         failure {
-            echo 'Pipeline failed. Check console output.'
+            echo 'Pipeline failed. Check console logs.'
         }
     }
 }
