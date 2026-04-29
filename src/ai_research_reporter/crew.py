@@ -4,35 +4,61 @@ from crewai.project import CrewBase, agent, crew, task
 
 @CrewBase
 class AiResearchReporterCrew:
-    """AI Research Reporter Crew"""
+    """DevOps Pipeline Failure Analyzer Crew"""
 
     agents_config = "config/agents.yaml"
     tasks_config = "config/tasks.yaml"
 
     @agent
-    def researcher(self) -> Agent:
+    def log_analyst(self) -> Agent:
         return Agent(
-            config=self.agents_config["researcher"],
+            config=self.agents_config["log_analyst"],
             verbose=True
         )
 
     @agent
-    def reporting_analyst(self) -> Agent:
+    def root_cause_expert(self) -> Agent:
         return Agent(
-            config=self.agents_config["reporting_analyst"],
+            config=self.agents_config["root_cause_expert"],
+            verbose=True
+        )
+
+    @agent
+    def fix_recommender(self) -> Agent:
+        return Agent(
+            config=self.agents_config["fix_recommender"],
+            verbose=True
+        )
+
+    @agent
+    def incident_writer(self) -> Agent:
+        return Agent(
+            config=self.agents_config["incident_writer"],
             verbose=True
         )
 
     @task
-    def research_task(self) -> Task:
+    def log_analysis_task(self) -> Task:
         return Task(
-            config=self.tasks_config["research_task"]
+            config=self.tasks_config["log_analysis_task"]
         )
 
     @task
-    def reporting_task(self) -> Task:
+    def root_cause_task(self) -> Task:
         return Task(
-            config=self.tasks_config["reporting_task"]
+            config=self.tasks_config["root_cause_task"]
+        )
+
+    @task
+    def fix_recommendation_task(self) -> Task:
+        return Task(
+            config=self.tasks_config["fix_recommendation_task"]
+        )
+
+    @task
+    def incident_report_task(self) -> Task:
+        return Task(
+            config=self.tasks_config["incident_report_task"]
         )
 
     @crew

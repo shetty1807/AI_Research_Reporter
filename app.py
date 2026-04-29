@@ -1,11 +1,49 @@
 import io
-import requests
+import os
+import re
+from datetime import datetime
+
 import streamlit as st
+from dotenv import load_dotenv
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 
-API_BASE_URL = "http://127.0.0.1:8000"
+from ai_research_reporter.crew import AiResearchReporterCrew
+
+load_dotenv()
+
+try:
+    if "GROQ_API_KEY" in st.secrets:
+        os.environ["GROQ_API_KEY"] = st.secrets["GROQ_API_KEY"]
+    if "MODEL" in st.secrets:
+        os.environ["MODEL"] = st.secrets["MODEL"]
+    if "OPENAI_API_KEY" in st.secrets:
+        os.environ["OPENAI_API_KEY"] = st.secrets["OPENAI_API_KEY"]
+except Exception:
+    pass
+
+
+def make_safe_filename(text: str) -> str:
+    text = text.strip().replace(" ", "_")
+    text = re.sub(r"[^A-Za-z0-9_\-]", "", text)
+    return text[:60] if text else "report"
+
+
+def save_report(topic: str, content: str) -> str:
+    reports_folder = "reports"
+    os.makedirs(reports_folder, exist_ok=True)
+
+    safe_topic = make_safe_filename(topic)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"{safe_topic}_{timestamp}.md"
+    filepath = os.path.join(reports_folder, filename)
+
+    with open(filepath, "w", encoding="utf-8") as file:
+        file.write(f"# Report on {topic}\n\n")
+        file.write(content)
+
+    return filepath
 
 
 def generate_pdf_bytes(title: str, content: str) -> bytes:
@@ -36,16 +74,6 @@ def generate_pdf_bytes(title: str, content: str) -> bytes:
     return pdf_data
 
 
-def fetch_report_history():
-    try:
-        response = requests.get(f"{API_BASE_URL}/reports", timeout=30)
-        if response.status_code == 200:
-            return response.json()
-        return []
-    except Exception:
-        return []
-
-
 st.set_page_config(
     page_title="AI Research Report Generator",
     page_icon="🤖",
@@ -53,15 +81,10 @@ st.set_page_config(
 )
 
 st.title("🤖 AI Research Report Generator")
-st.caption("CrewAI + FastAPI + Streamlit + PDF Export")
+st.caption("CrewAI + Streamlit + PDF Export")
 
 with st.sidebar:
-    st.header("Settings")
-    api_url = st.text_input("API Base URL", value=API_BASE_URL)
-    API_BASE_URL = api_url.strip() or API_BASE_URL
-
-    st.markdown("---")
-    st.subheader("Quick Topics")
+    st.header("Quick Topics")
     quick_topics = [
         "How AI agents are transforming DevOps",
         "Future of CI/CD with AI",
@@ -74,17 +97,6 @@ with st.sidebar:
         if st.button(topic_option):
             st.session_state["selected_topic"] = topic_option
 
-    st.markdown("---")
-    st.subheader("Report History")
-    history = fetch_report_history()
-
-    if history:
-        for item in history[:10]:
-            st.markdown(f"**{item['filename']}**")
-            st.caption(item["created_at"])
-    else:
-        st.caption("No report history found yet.")
-
 default_topic = st.session_state.get("selected_topic", "")
 topic = st.text_input(
     "Enter your topic",
@@ -92,79 +104,44 @@ topic = st.text_input(
     placeholder="Example: How AI agents are transforming DevOps"
 )
 
-col1, col2 = st.columns([1, 1])
-
-with col1:
-    generate_clicked = st.button("Generate Report", use_container_width=True)
-
-with col2:
-    health_clicked = st.button("Check API Health", use_container_width=True)
-
-if health_clicked:
-    try:
-        response = requests.get(f"{API_BASE_URL}/health", timeout=10)
-        if response.status_code == 200:
-            st.success("API is running successfully.")
-        else:
-            st.error("API responded, but not successfully.")
-    except Exception as e:
-        st.error(f"Could not connect to API: {e}")
-
-if generate_clicked:
+if st.button("Generate Report", use_container_width=True):
     if not topic.strip():
         st.warning("Please enter a topic.")
     else:
         try:
             with st.spinner("Generating report... Please wait."):
-                response = requests.post(
-                    f"{API_BASE_URL}/generate-report",
-                    json={"topic": topic},
-                    timeout=300
-                )
+                inputs = {"topic": topic}
+                result = AiResearchReporterCrew().crew().kickoff(inputs=inputs)
+                report_text = str(result)
 
-            if response.status_code == 200:
-                data = response.json()
-                report_text = data["report"]
-                saved_file = data["saved_file"]
-
-                st.success("Report generated successfully.")
-
-                st.subheader("Generated Report")
-                st.markdown(report_text)
-
-                md_filename = topic.strip().replace(" ", "_") + ".md"
-                pdf_filename = topic.strip().replace(" ", "_") + ".pdf"
-
+                saved_file = save_report(topic, report_text)
                 pdf_bytes = generate_pdf_bytes(f"Report on {topic}", report_text)
 
-                dcol1, dcol2 = st.columns(2)
+            st.success("Report generated successfully.")
+            st.subheader("Generated Report")
+            st.markdown(report_text)
 
-                with dcol1:
-                    st.download_button(
-                        label="Download Markdown",
-                        data=report_text,
-                        file_name=md_filename,
-                        mime="text/markdown",
-                        use_container_width=True
-                    )
+            col1, col2 = st.columns(2)
 
-                with dcol2:
-                    st.download_button(
-                        label="Download PDF",
-                        data=pdf_bytes,
-                        file_name=pdf_filename,
-                        mime="application/pdf",
-                        use_container_width=True
-                    )
+            with col1:
+                st.download_button(
+                    label="Download Markdown",
+                    data=report_text,
+                    file_name=f"{make_safe_filename(topic)}.md",
+                    mime="text/markdown",
+                    use_container_width=True
+                )
 
-                st.info(f"Saved locally at: {saved_file}")
+            with col2:
+                st.download_button(
+                    label="Download PDF",
+                    data=pdf_bytes,
+                    file_name=f"{make_safe_filename(topic)}.pdf",
+                    mime="application/pdf",
+                    use_container_width=True
+                )
 
-            else:
-                try:
-                    error_data = response.json()
-                    st.error(f"API Error: {error_data}")
-                except Exception:
-                    st.error(f"API Error: {response.text}")
+            st.info(f"Saved locally at: {saved_file}")
 
         except Exception as e:
             st.error(f"An error occurred: {e}")

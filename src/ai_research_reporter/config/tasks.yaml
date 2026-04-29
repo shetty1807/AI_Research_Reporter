@@ -1,18 +1,77 @@
-research_task:
+log_analysis_task:
   description: >
-    Conduct detailed research on the topic: {topic}.
-    Find important facts, current trends, advantages, challenges,
-    applications, and future scope.
-  expected_output: >
-    A detailed research summary with key points and findings.
-  agent: researcher
+    Analyze the following DevOps pipeline information.
 
-reporting_task:
-  description: >
-    Using the research provided, write a detailed professional report
-    on the topic: {topic}. Include introduction, major findings,
-    applications, challenges, future scope, and conclusion.
+    Platform: {platform}
+    Status: {status}
+    Logs:
+    {logs}
+
+    Your job is to:
+    1. Identify the important errors and warnings
+    2. Detect the most likely issue category
+    3. Assign a severity level
+
+    Possible issue categories:
+    - Dependency Error
+    - YAML Syntax Error
+    - Secret or Environment Variable Issue
+    - Docker Build Failure
+    - Authentication or API Failure
+    - Test Failure
+    - Deployment Failure
+    - Configuration Error
+    - Unknown Issue
+
+    Possible severity values:
+    - Low
+    - Medium
+    - High
+    - Critical
   expected_output: >
-    A structured markdown report with headings and clear explanations.
-  agent: reporting_analyst
-  output_file: report.md
+    A technical log analysis containing:
+    - error summary
+    - issue category
+    - severity
+    - key failure clues
+  agent: log_analyst
+
+root_cause_task:
+  description: >
+    Based on the platform, pipeline status, and prior analysis,
+    determine the most likely root cause of the failure.
+  expected_output: >
+    A root cause explanation that clearly states what failed and why.
+  agent: root_cause_expert
+
+fix_recommendation_task:
+  description: >
+    Based on the detected root cause and issue category,
+    provide practical step-by-step fix recommendations and prevention tips.
+  expected_output: >
+    A structured list of:
+    - fix recommendations
+    - platform-specific guidance
+    - prevention tips
+  agent: fix_recommender
+
+incident_report_task:
+  description: >
+    Write a complete DevOps incident report using the pipeline details,
+    analysis, root cause, category, severity, and fix recommendations.
+
+    The report must include:
+    - Incident Summary
+    - Platform
+    - Status
+    - Issue Category
+    - Severity
+    - Root Cause
+    - Recommended Fix
+    - Prevention Tips
+    - Conclusion
+  expected_output: >
+    A professional markdown incident report with headings and
+    clear technical explanation.
+  agent: incident_writer
+  output_file: incident_report.md

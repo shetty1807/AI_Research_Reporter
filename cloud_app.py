@@ -1,36 +1,23 @@
-import io
 import os
-import re
-from datetime import datetime
-
+import io
 import streamlit as st
+from dotenv import load_dotenv
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
-
 from ai_research_reporter.crew import AiResearchReporterCrew
 
+load_dotenv()
 
-def make_safe_filename(text: str) -> str:
-    text = text.strip().replace(" ", "_")
-    text = re.sub(r"[^A-Za-z0-9_\-]", "", text)
-    return text[:60] if text else "report"
-
-
-def save_report(topic: str, content: str) -> str:
-    reports_folder = "reports"
-    os.makedirs(reports_folder, exist_ok=True)
-
-    safe_topic = make_safe_filename(topic)
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"{safe_topic}_{timestamp}.md"
-    filepath = os.path.join(reports_folder, filename)
-
-    with open(filepath, "w", encoding="utf-8") as file:
-        file.write(f"# Report on {topic}\n\n")
-        file.write(content)
-
-    return filepath
+try:
+    if "GROQ_API_KEY" in st.secrets:
+        os.environ["GROQ_API_KEY"] = st.secrets["GROQ_API_KEY"]
+    if "MODEL" in st.secrets:
+        os.environ["MODEL"] = st.secrets["MODEL"]
+    if "OPENAI_API_KEY" in st.secrets:
+        os.environ["OPENAI_API_KEY"] = st.secrets["OPENAI_API_KEY"]
+except Exception:
+    pass
 
 
 def generate_pdf_bytes(title: str, content: str) -> bytes:
@@ -61,82 +48,137 @@ def generate_pdf_bytes(title: str, content: str) -> bytes:
     return pdf_data
 
 
-def get_local_report_history():
-    reports_folder = "reports"
-    os.makedirs(reports_folder, exist_ok=True)
+def extract_field(report_text: str, field_name: str) -> str:
+    lines = report_text.splitlines()
+    field_name_lower = field_name.lower()
 
-    files = []
-    for filename in os.listdir(reports_folder):
-        if filename.endswith(".md"):
-            filepath = os.path.join(reports_folder, filename)
-            created_ts = os.path.getctime(filepath)
-            created_at = datetime.fromtimestamp(created_ts).strftime("%Y-%m-%d %H:%M:%S")
-            files.append((filename, created_at))
+    for i, line in enumerate(lines):
+        stripped = line.strip().lower()
+        if stripped.startswith(f"## {field_name_lower}") or stripped.startswith(f"**{field_name_lower}**"):
+            if i + 1 < len(lines):
+                next_line = lines[i + 1].strip()
+                if next_line:
+                    return next_line
 
-    files.sort(key=lambda x: x[1], reverse=True)
-    return files
+        if stripped.startswith(f"{field_name_lower}:") or stripped.startswith(f"**{field_name_lower}:"):
+            parts = line.split(":", 1)
+            if len(parts) > 1:
+                return parts[1].strip().replace("*", "")
+
+    return "Not clearly identified"
 
 
 st.set_page_config(
-    page_title="AI Research Report Generator",
-    page_icon="🤖",
+    page_title="AI DevOps Pipeline Failure Analyzer",
+    page_icon="⚙️",
     layout="wide"
 )
 
-st.title("🤖 AI Research Report Generator")
-st.caption("CrewAI + Streamlit + PDF Export")
+st.title("⚙️ AI DevOps Pipeline Failure Analyzer")
+st.caption("CrewAI + Streamlit + Severity + Issue Category")
 
 with st.sidebar:
-    st.header("Quick Topics")
-    quick_topics = [
-        "How AI agents are transforming DevOps",
-        "Future of CI/CD with AI",
-        "Cybersecurity trends in 2026",
-        "AI in healthcare diagnosis",
-        "Top DevOps tools in 2026"
-    ]
+    st.header("Quick Error Examples")
 
-    for topic_option in quick_topics:
-        if st.button(topic_option):
-            st.session_state["selected_topic"] = topic_option
+    examples = {
+        "Jenkins Missing Dependency": {
+            "platform": "Jenkins",
+            "status": "Build Error",
+            "logs": "ModuleNotFoundError: No module named requests"
+        },
+        "GitHub Actions YAML Error": {
+            "platform": "GitHub Actions",
+            "status": "Build Error",
+            "logs": "YAML syntax error on line 14: mapping values are not allowed here"
+        },
+        "GitLab Unauthorized API": {
+            "platform": "GitLab CI",
+            "status": "Failed",
+            "logs": "401 Unauthorized while calling TestNeo API"
+        },
+        "Docker Build Failure": {
+            "platform": "Jenkins",
+            "status": "Build Error",
+            "logs": "docker build failed: failed to read dockerfile: no such file or directory"
+        }
+    }
 
-    st.markdown("---")
-    st.subheader("Report History")
+    for label, value in examples.items():
+        if st.button(label, use_container_width=True):
+            st.session_state["platform"] = value["platform"]
+            st.session_state["status"] = value["status"]
+            st.session_state["logs"] = value["logs"]
 
-    history = get_local_report_history()
-    if history:
-        for filename, created_at in history[:10]:
-            st.markdown(f"**{filename}**")
-            st.caption(created_at)
-    else:
-        st.caption("No report history found yet.")
+platform_options = [
+    "Jenkins",
+    "GitHub Actions",
+    "GitLab CI",
+    "Bitbucket Pipelines",
+    "CircleCI",
+    "Other"
+]
+status_options = [
+    "Failed",
+    "Passed with Warnings",
+    "Deployment Error",
+    "Build Error",
+    "Test Failure"
+]
 
-default_topic = st.session_state.get("selected_topic", "")
-topic = st.text_input(
-    "Enter your topic",
-    value=default_topic,
-    placeholder="Example: How AI agents are transforming DevOps"
+platform = st.selectbox(
+    "Select CI/CD Platform",
+    platform_options,
+    index=platform_options.index(st.session_state.get("platform", "Jenkins"))
 )
 
-if st.button("Generate Report", use_container_width=True):
-    if not topic.strip():
-        st.warning("Please enter a topic.")
+status = st.selectbox(
+    "Pipeline Status",
+    status_options,
+    index=status_options.index(st.session_state.get("status", "Failed"))
+)
+
+logs = st.text_area(
+    "Paste pipeline logs or error output",
+    height=250,
+    value=st.session_state.get("logs", ""),
+    placeholder="Example: ModuleNotFoundError: No module named requests"
+)
+
+if st.button("Analyze Pipeline Failure", use_container_width=True):
+    if not logs.strip():
+        st.warning("Please paste pipeline logs or error output.")
     else:
         try:
-            with st.spinner("Generating report... Please wait."):
-                inputs = {"topic": topic}
+            with st.spinner("Analyzing pipeline logs... Please wait."):
+                inputs = {
+                    "platform": platform,
+                    "status": status,
+                    "logs": logs
+                }
+
                 result = AiResearchReporterCrew().crew().kickoff(inputs=inputs)
                 report_text = str(result)
+                pdf_bytes = generate_pdf_bytes(f"{platform} Incident Report", report_text)
 
-                saved_file = save_report(topic, report_text)
-                pdf_bytes = generate_pdf_bytes(f"Report on {topic}", report_text)
+            st.success("Pipeline analysis completed successfully.")
 
-            st.success("Report generated successfully.")
-            st.subheader("Generated Report")
+            issue_category = extract_field(report_text, "Issue Category")
+            severity = extract_field(report_text, "Severity")
+            root_cause = extract_field(report_text, "Root Cause")
+
+            c1, c2, c3 = st.columns(3)
+            with c1:
+                st.info(f"**Issue Category:** {issue_category}")
+            with c2:
+                st.warning(f"**Severity:** {severity}")
+            with c3:
+                st.success(f"**Platform:** {platform}")
+
+            st.subheader("Root Cause")
+            st.write(root_cause)
+
+            st.subheader("Incident Report")
             st.markdown(report_text)
-
-            md_filename = make_safe_filename(topic) + ".md"
-            pdf_filename = make_safe_filename(topic) + ".pdf"
 
             col1, col2 = st.columns(2)
 
@@ -144,7 +186,7 @@ if st.button("Generate Report", use_container_width=True):
                 st.download_button(
                     label="Download Markdown",
                     data=report_text,
-                    file_name=md_filename,
+                    file_name=f"{platform.lower().replace(' ', '_')}_incident_report.md",
                     mime="text/markdown",
                     use_container_width=True
                 )
@@ -153,12 +195,10 @@ if st.button("Generate Report", use_container_width=True):
                 st.download_button(
                     label="Download PDF",
                     data=pdf_bytes,
-                    file_name=pdf_filename,
+                    file_name=f"{platform.lower().replace(' ', '_')}_incident_report.pdf",
                     mime="application/pdf",
                     use_container_width=True
                 )
-
-            st.info(f"Report saved locally at: {saved_file}")
 
         except Exception as e:
             st.error(f"An error occurred: {e}")
