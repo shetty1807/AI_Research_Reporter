@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-research-reporter
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ai-research-reporter
+  template:
+    metadata:
+      labels:
+        app: ai-research-reporter
+    spec:
+      containers:
+        - name: ai-research-reporter
+          image: ai-research-reporter:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8501
